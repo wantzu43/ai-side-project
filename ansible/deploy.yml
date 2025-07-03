@@ -1,0 +1,49 @@
+# Ansible playbook to deploy a flask app with mysql and nginx using docker compose
+# Steps: install docker, install docker-compose, upload files, run docker-compose up
+---
+- name: Deploy Flask + MySQL + Nginx with Docker Compose
+  hosts: webservers
+  become: true
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: true
+
+    - name: Install Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.24.2/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: 'u+x'
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create project directory
+      file:
+        path: /home/ubuntu/ai-side-project
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy project files to server
+      synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: /home/ubuntu/ai-side-project/
+        rsync_opts:
+          - "--exclude=venv"
+        mode: push
+      delegate_to: localhost
+      become: false
+
+    - name: Run Docker Compose
+      shell: docker-compose up -d --build
+      args:
+        chdir: /home/ubuntu/ai-side-project/
+      become: true
+
